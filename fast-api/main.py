@@ -44,7 +44,20 @@ async def get_state(pk: str):
   if state is not None:
     return json.loads(state)
   
-  return {}
+  state = build_state(pk)
+  redis.set(f'delivery:{pk}', json.dumps(state))
+  return state
+
+def build_state(pk: str):
+  pks = Event.all_pks()
+  all_events = [Event.get(pk) for pk in pks]
+  events = [event for event in all_events if event.delivery_id == pk]
+  state = {}
+  
+  for event in events:
+    state = consumers.CONSUMERS[event.type](state, event)
+    
+  return state
 
 
 @app.post('/deliveries/create')
